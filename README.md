@@ -14,6 +14,7 @@ Docker で動く Laravel 開発環境です。
    ```bash
    docker compose exec app composer install
    ```
+   ※ `vendor` は表示を速くするため Docker の中（`vendor-data` ボリューム）に置いています。そのため、`src/vendor` がすでにあっても、この手順は必ずコンテナの中で実行してください。
 5. `src/.env.example` をコピーして `src/.env` を作り、DB 設定を書く
    ```
    DB_CONNECTION=mysql
@@ -145,7 +146,37 @@ Docker で動く Laravel 開発環境です。
 | user_id | bigint | users.id への外部キー（書いた人） |
 | body | text | コメント本文 |
 | created_at / updated_at | timestamp | 作成・更新日時 |
+## 機能一覧（Week 9）
 
+### タスク管理（/tasks）
+- ログインした人だけ使える
+- 自分のタスクだけが表示される（未完了→期限が近い順）
+- タスクの追加・編集・削除、完了／未完了の切り替え
+- 編集・削除・切り替えは本人だけ（TaskPolicy で判定、他人は 403）
+
+### リファクタリング（Repository / Service パターン）
+コントローラーの仕事を、役割ごとのクラスに分けました。
+
+| クラス | 役割 |
+|---|---|
+| Controller | リクエストを受け取って、担当に渡し、画面を返す |
+| FormRequest（ProductRequest） | 入力チェック |
+| Policy（PostPolicy, TaskPolicy） | 本人かどうかの判定 |
+| Service（PostService, TaskService, ProductService） | 業務の手順（トランザクション、ログ） |
+| Repository（PostRepository, TaskRepository, ProductRepository） | DB の読み書き |
+
+## テーブル定義（Week 9 で追加）
+
+### tasks
+| カラム | 型 | 説明 |
+|---|---|---|
+| id | bigint | 主キー |
+| user_id | bigint | users.id への外部キー（ユーザー削除時にタスクも削除） |
+| title | varchar(100) | タイトル |
+| description | text（空でもOK） | 説明 |
+| due_date | date（空でもOK） | 期限 |
+| is_done | boolean | 完了したか（初期値 false） |
+| created_at / updated_at | timestamp | 作成・更新日時 |
 ## テストの実行
 
 ```bash
