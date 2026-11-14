@@ -5,20 +5,69 @@
 @section('content')
     <h1>{{ $post->title }}</h1>
     <p>カテゴリー：{{ $post->category }}</p>
+    <p>投稿者：{{ $post->user->name }}</p>
     <small>{{ $post->created_at->format('Y年m月d日 H:i') }}</small>
 
     <div>{!! nl2br(e($post->content)) !!}</div>
 
-    <p>
-        <a href="{{ route('posts.edit', $post) }}">編集</a>
-    </p>
+    {{-- 編集・削除ボタンは、投稿した本人にだけ表示する --}}
+    @if (auth()->id() === $post->user_id)
+        <p>
+            <a href="{{ route('posts.edit', $post) }}">編集</a>
+        </p>
 
-    <form action="{{ route('posts.destroy', $post) }}" method="POST"
-          onsubmit="return confirm('本当に削除しますか？');">
-        @csrf
-        @method('DELETE')
-        <button type="submit">削除</button>
-    </form>
+        <form action="{{ route('posts.destroy', $post) }}" method="POST"
+              onsubmit="return confirm('本当に削除しますか？');">
+            @csrf
+            @method('DELETE')
+            <button type="submit">削除</button>
+        </form>
+    @endif
+
+    <hr>
+
+    {{-- コメント一覧（ログインしていなくても見られる） --}}
+    <h2>コメント（{{ $post->comments->count() }}件）</h2>
+
+    @forelse ($post->comments as $comment)
+        <div>
+            <p>
+                <strong>{{ $comment->user->name }}</strong>
+                <small>{{ $comment->created_at->format('Y年m月d日 H:i') }}</small>
+            </p>
+            <p>{!! nl2br(e($comment->body)) !!}</p>
+
+            {{-- 削除ボタンは、コメントを書いた本人にだけ表示する --}}
+            @if (auth()->id() === $comment->user_id)
+                <form action="{{ route('comments.destroy', $comment) }}" method="POST"
+                      onsubmit="return confirm('このコメントを削除しますか？');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit">削除</button>
+                </form>
+            @endif
+        </div>
+    @empty
+        <p>まだコメントはありません</p>
+    @endforelse
+
+    {{-- 書き込みフォーム（ログインした人だけ） --}}
+    @auth
+        <h3>コメントを書く</h3>
+
+        @error('body')
+            <p style="color: red;">{{ $message }}</p>
+        @enderror
+
+        <form action="{{ route('comments.store', $post) }}" method="POST">
+            @csrf
+            <textarea name="body" rows="4" cols="50">{{ old('body') }}</textarea>
+            <br>
+            <button type="submit">コメントする</button>
+        </form>
+    @else
+        <p>コメントするには <a href="{{ route('login') }}">ログイン</a> してください。</p>
+    @endauth
 
     <p><a href="{{ route('posts.index') }}">一覧に戻る</a></p>
 @endsection

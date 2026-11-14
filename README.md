@@ -28,7 +28,14 @@ Docker で動く Laravel 開発環境です。
    docker compose exec app php artisan key:generate
    docker compose exec app php artisan migrate
    ```
-7. ブラウザで確認する
+7. 画面のデザイン（CSS）を準備する（自分の PC で実行。Node.js が必要）
+   ```bash
+   cd src
+   npm install
+   npm run build
+   cd ..
+   ```
+8. ブラウザで確認する
    - Laravel: http://localhost
    - phpMyAdmin: http://localhost:8080
    
@@ -105,3 +112,48 @@ Docker で動く Laravel 開発環境です。
 
 ### 予約一覧
 ![予約一覧](docs/images/reservations.png)
+
+## 機能一覧（Week 8）
+
+### 会員機能（Laravel Breeze）
+- 会員登録（/register）・ログイン（/login）・ログアウト
+- プロフィール編集（/profile）
+
+### 会員制ブログ
+- 投稿の一覧・詳細は誰でも見られる
+- 投稿の作成はログインした人だけ
+- 投稿の編集・削除は、投稿した本人だけ（他人は 403）
+- 一覧・詳細に投稿者名を表示
+
+### コメント欄（投稿詳細ページ）
+- コメントは誰でも見られる
+- コメントの書き込みはログインした人だけ
+- コメントの削除は、書いた本人だけ
+
+## テーブル定義（Week 8 で追加・変更）
+
+### posts（追加した列）
+| カラム | 型 | 説明 |
+|---|---|---|
+| user_id | bigint | users.id への外部キー（投稿者） |
+
+### comments
+| カラム | 型 | 説明 |
+|---|---|---|
+| id | bigint | 主キー |
+| post_id | bigint | posts.id への外部キー（投稿削除時にコメントも削除） |
+| user_id | bigint | users.id への外部キー（書いた人） |
+| body | text | コメント本文 |
+| created_at / updated_at | timestamp | 作成・更新日時 |
+
+## テストの実行
+
+```bash
+docker compose exec app php artisan test
+```
+
+セキュリティテストだけを実行する場合：
+
+```bash
+docker compose exec app php artisan test --filter=SecurityTest
+```

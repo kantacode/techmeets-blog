@@ -1,30 +1,36 @@
 <!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>@yield('title') - TechMeets Blog</title>
-</head>
-<body>
-    <header>
-        <nav>
-            <a href="{{ route('posts.index') }}">投稿一覧</a>
-            <a href="{{ route('posts.create') }}">新規投稿</a>
-            <a href="{{ route('products.index') }}">商品一覧</a>
-             <a href="{{ route('events.index') }}">イベント一覧</a>
-            <a href="{{ route('reservations.index') }}">予約一覧</a>
-        </nav>
-    </header>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <main>
-        @if (session('success'))
-            <p style="color: green;">{{ session('success') }}</p>
-        @endif
+        <title>{{ config('app.name', 'Laravel') }}</title>
 
-        @yield('content')
-    </main>
+        <!-- Fonts -->
+        <link rel="preconnect" href="https://fonts.bunny.net">
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
-    <footer>
-        <p>© 2026 TechMeets Blog</p>
-    </footer>
-</body>
+        <!-- Scripts -->
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+    </head>
+    <body class="font-sans antialiased">
+        <div class="min-h-screen bg-gray-100">
+            @include('layouts.navigation')
+
+            <!-- Page Heading -->
+            @isset($header)
+                <header class="bg-white shadow">
+                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                        {{ $header }}
+                    </div>
+                </header>
+            @endisset
+
+            <!-- Page Content -->
+            <main>
+                {{ $slot }}
+            </main>
+        </div>
+    </body>
 </html>
