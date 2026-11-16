@@ -15,6 +15,12 @@ class PostRepository
         return Post::with('user')->latest()->paginate(10);
     }
 
+    // API の1件取得用：投稿者も一緒に取得。見つからなければ 404
+    public function findById(int $id): Post
+    {
+        return Post::with('user')->findOrFail($id);
+    }
+
     // 詳細用：投稿者と、コメント（＋書いた人）を古い順で一緒に取得
     public function loadForShow(Post $post): Post
     {
