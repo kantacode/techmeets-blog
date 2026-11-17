@@ -19,6 +19,9 @@ services:
       dockerfile: docker/php/Dockerfile
     volumes:
       - ./src:/var/www/html
+      # vendor（ライブラリ約8,000ファイル）だけは Docker の中に置いて高速化する
+      # （Windows のフォルダを経由すると読み込みがとても遅いため）
+      - vendor-data:/var/www/html/vendor
     depends_on:
       - db
     networks:
@@ -53,6 +56,7 @@ services:
 
 volumes:
   db-data:
+  vendor-data:
 
 networks:
   app-network:

@@ -10,6 +10,7 @@
             <a href="{{ route('posts.index') }}">投稿一覧</a>
             @auth
                 <a href="{{ route('posts.create') }}">新規投稿</a>
+                <a href="{{ route('tasks.index') }}">タスク</a>
             @endauth
             <a href="{{ route('products.index') }}">商品一覧</a>
             <a href="{{ route('events.index') }}">イベント一覧</a>
