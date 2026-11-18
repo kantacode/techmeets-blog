@@ -8,6 +8,13 @@
     <p>投稿者：{{ $post->user->name }}</p>
     <small>{{ $post->created_at->format('Y年m月d日 H:i') }}</small>
 
+    {{-- S3 に保存した画像（画像がある投稿だけ表示） --}}
+    @if ($post->image_url)
+        <p>
+            <img src="{{ $post->image_url }}" alt="{{ $post->title }}" style="max-width: 100%; height: auto;">
+        </p>
+    @endif
+
     <div>{!! nl2br(e($post->content)) !!}</div>
 
     {{-- 編集・削除ボタンは、投稿した本人にだけ表示する --}}
