@@ -9,11 +9,13 @@ use App\Models\Task;
  */
 class TaskRepository
 {
-    // 自分のタスクだけ取得：未完了が上、期限が近い順、10件ずつ
+    // 自分のタスクだけ取得：未完了が上、期限が近い順（期限なしは後ろ）、10件ずつ
     public function getByUser(int $userId)
     {
         return Task::where('user_id', $userId)
             ->orderBy('is_done')
+            // MySQL は NULL を先に並べるので、期限なし（NULL）を後ろに回す
+            ->orderByRaw('due_date IS NULL')
             ->orderBy('due_date')
             ->paginate(10);
     }

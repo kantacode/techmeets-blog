@@ -188,3 +188,58 @@ docker compose exec app php artisan test
 ```bash
 docker compose exec app php artisan test --filter=SecurityTest
 ```
+## 機能一覧（Week 10）
+
+Laravel を API として公開し、Vue.js（`my-frontend/`）から呼び出す「フロント・バック分離構成」にしました。
+
+```
+techmeets-blog/
+├── docker-compose.yml
+├── docker/
+├── src/           # Laravel（API を提供する側）
+└── my-frontend/   # Vue.js（Vite + Vue 3）。API を呼ぶ側
+```
+
+### 投稿 API（認証なし）
+| メソッド | URL | 内容 |
+|---|---|---|
+| GET | /api/posts | 投稿一覧（新しい順、10件ずつ） |
+| GET | /api/posts/{id} | 投稿1件（なければ 404） |
+| POST | /api/posts | 新規投稿（title・content・category は必須。未入力は 422） |
+
+- レスポンスの形は `PostResource` で決めている（投稿者は名前だけ返し、メールアドレスなどは返さない）
+- API から作った投稿は、Seeder で作るテスト用ユーザー（test@example.com）の投稿として保存する
+- `config/cors.php` で `http://localhost:5173` からのアクセスだけを許可している
+
+## 動かし方（Week 10）
+
+### 1. Laravel（API）を起動する
+```bash
+docker compose up -d
+docker compose exec app php artisan migrate
+docker compose exec app php artisan db:seed   # テスト用ユーザー（test@example.com）を作る
+```
+ブラウザで http://localhost/api/posts を開いて JSON が表示されれば OK。
+
+### 2. フロントエンド（Vue.js）を起動する（自分の PC で実行。Node.js 18 以上が必要）
+```bash
+cd my-frontend
+npm install
+npm run dev
+```
+ブラウザで http://localhost:5173 を開くと、投稿フォームと投稿一覧が表示されます。
+
+※ Laravel を 80 番以外のポートで動かしている場合は、`my-frontend/.env` に `VITE_API_URL=http://localhost:ポート番号/api` と書いてください。
+
+### 画面
+![フロントエンド](docs/images/week10-frontend.jpg)
+
+## コンポーネント分割の理由
+
+画面を「App（組み立て役）」「PostForm（新規投稿フォーム）」「PostList（一覧の取得と表示）」「PostCard（投稿1件分の表示）」の4つに分けました。分ける基準は「そのコンポーネントが持つ仕事（とデータ）が1つになるか」です。PostForm は入力値と送信だけ、PostList は API からの一覧取得と読み込み中・エラー表示だけを担当し、それぞれ自分の state を持ちます。PostCard は state を持たず、props で受け取った1件を表示するだけなので、一覧の中で何度も繰り返し使え、将来の詳細ページなど別の画面でも使い回せます。フォームと一覧はお互いを知らず、「投稿できた」という通知（emit）を App が受け取って一覧に再取得を頼む形にしたので、片方を直しても、もう片方に影響が出にくくなっています。
+
+## テスト（Week 10 で追加）
+`tests/Feature/ApiPostTest.php`：一覧の取得、404、投稿の保存、未入力時の 422、CORS ヘッダーを確認しています。
+```bash
+docker compose exec app php artisan test --filter=ApiPostTest
+```

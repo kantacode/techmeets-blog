@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\TaskRequest;
 use App\Models\Task;
 use App\Repositories\TaskRepository;
 use App\Services\TaskService;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -32,13 +32,9 @@ class TaskController extends Controller
     }
 
     // 保存：POST /tasks
-    public function store(Request $request)
+    public function store(TaskRequest $request)
     {
-        $validated = $request->validate([
-            'title'       => 'required|max:100',
-            'description' => 'nullable|max:1000',
-            'due_date'    => 'nullable|date',
-        ]);
+        $validated = $request->validated();
         $validated['user_id'] = auth()->id();
 
         $this->taskService->createTask($validated);
@@ -54,17 +50,11 @@ class TaskController extends Controller
     }
 
     // 更新：PUT /tasks/{task}
-    public function update(Request $request, Task $task)
+    public function update(TaskRequest $request, Task $task)
     {
         Gate::authorize('update', $task);
 
-        $validated = $request->validate([
-            'title'       => 'required|max:100',
-            'description' => 'nullable|max:1000',
-            'due_date'    => 'nullable|date',
-        ]);
-
-        $this->taskService->updateTask($task, $validated);
+        $this->taskService->updateTask($task, $request->validated());
 
         return redirect()->route('tasks.index')->with('success', 'タスクを更新しました');
     }

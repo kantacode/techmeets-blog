@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\PostRequest;
 use App\Models\Post;
 use App\Repositories\PostRepository;
 use App\Services\PostService;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 /**
  * 投稿の「受け取って、担当に渡して、画面を返す」だけを担当する（交通整理）
+ *   入力チェック   → PostRequest
  *   DB の読み書き → PostRepository
  *   業務の手順     → PostService
  *   本人チェック   → PostPolicy
@@ -35,13 +36,9 @@ class PostController extends Controller
     }
 
     // 保存：POST /posts
-    public function store(Request $request)
+    public function store(PostRequest $request)
     {
-        $validated = $request->validate([
-            'title'    => 'required|max:200',
-            'content'  => 'required',
-            'category' => 'required|max:50',
-        ]);
+        $validated = $request->validated();
         $validated['user_id'] = auth()->id(); // 投稿者はフォームではなく、ログイン中のユーザー
 
         $post = $this->postService->createPost($validated);
@@ -64,17 +61,11 @@ class PostController extends Controller
     }
 
     // 更新：PUT /posts/{post}
-    public function update(Request $request, Post $post)
+    public function update(PostRequest $request, Post $post)
     {
         Gate::authorize('update', $post);
 
-        $validated = $request->validate([
-            'title'    => 'required|max:200',
-            'content'  => 'required',
-            'category' => 'required|max:50',
-        ]);
-
-        $post = $this->postService->updatePost($post, $validated);
+        $post = $this->postService->updatePost($post, $request->validated());
 
         return redirect()->route('posts.show', $post)->with('success', '投稿を更新しました');
     }
