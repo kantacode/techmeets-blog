@@ -27,6 +27,7 @@ class PostRequest extends FormRequest
             'title'    => 'required|max:200',
             'content'  => 'required',
             'category' => 'required|max:50',
+            'image'    => 'nullable|image|max:5120', // 画像は任意。jpg/png/gif/webp など・5MB まで
         ];
     }
 }

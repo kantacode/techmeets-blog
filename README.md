@@ -243,3 +243,138 @@ npm run dev
 ```bash
 docker compose exec app php artisan test --filter=ApiPostTest
 ```
+
+## 本番環境（Week 11：AWS）
+
+公開 URL：http://16.179.249.198 （Laravel の画面のみ公開。Week 10 の Vue.js は公開していない）
+
+```
+[ブラウザ] ──HTTP(80)──▶ [EC2: Ubuntu + Docker]
+                           ├─ nginx コンテナ
+                           └─ app コンテナ（PHP / Laravel）
+                                 ├──3306(TLS)──▶ [RDS: MySQL 8.4]
+                                 └──HTTPS──────▶ [S3: 画像]
+[自分の PC] ───SSH(22)───▶ [EC2]
+```
+
+| サービス | 設定 | 理由 |
+|---|---|---|
+| リージョン | アジアパシフィック（シドニー）ap-southeast-2 | 無料プランのアカウントがシドニーに固定されていて、東京はプランのアップグレードが必要だったため |
+| EC2 | Ubuntu Server 26.04 LTS / t3.micro | 無料利用枠の対象 |
+| Elastic IP | 16.179.249.198 | 停止・開始しても IP が変わらないようにする（Week 13 のドメイン設定で使う） |
+| RDS | MySQL 8.4 / db.t4g.micro / パブリックアクセスなし | DB のバックアップや更新を AWS に任せる。8.0 は延長サポート料金がかかるため 8.4 |
+| S3 | `techmeets-blog-images-1103`（パブリックアクセスはブロック） | 投稿の画像を保存する |
+
+## セキュリティグループの設計（Week 11）
+
+「必要なポートを、必要な相手にだけ開ける」（最小権限）を基準にしました。
+
+### EC2 用（launch-wizard-1）
+| タイプ | ポート | ソース | 理由 |
+|---|---|---|---|
+| SSH | 22 | 自分の IP/32 | サーバーを操作できるのは自分だけでよい。0.0.0.0/0 にすると、世界中からパスワードや鍵の総当たり攻撃を受ける |
+| HTTP | 80 | 0.0.0.0/0 | ブログは誰でも見られる必要がある |
+| HTTPS | 443 | 0.0.0.0/0 | Week 13 で HTTPS にするときに使う。誰でも見られる必要がある点は HTTP と同じ |
+
+- 3306（MySQL）は EC2 では開けていない。DB は RDS にあり、EC2 の中で MySQL を動かしていないため
+- 自分の IP は、つなぐ回線が変わると変わる。SSH が `Connection timed out` になったら、SSH のソースを「マイIP」で選び直す
+- 「マイIP」で IPv6 アドレスが入ると、IPv4 で接続している SSH は通らない。そのときはルールを削除して、IPv4（`curl https://checkip.amazonaws.com` で確認）で作り直す
+
+### RDS 用（RDS 作成時に「EC2 コンピューティングリソースに接続」で自動作成）
+| タイプ | ポート | ソース | 理由 |
+|---|---|---|---|
+| MySQL/Aurora | 3306 | EC2 のセキュリティグループ | DB に話しかけるのは Laravel（EC2）だけ。IP アドレスではなくセキュリティグループで指定しているので、EC2 の IP が変わっても設定を変えなくてよい |
+
+- RDS は「パブリックアクセス：なし」なので、インターネットからは DB に一切つながらない
+- アウトバウンドはデフォルト（全許可）のまま。EC2 から RDS・S3・GitHub・Docker Hub などに出ていく通信が必要なため
+
+## デプロイ手順（Week 11）
+
+EC2 に SSH でログインして作業します。
+
+```bash
+ssh -i ~/.ssh/techmeets-key.pem ubuntu@16.179.249.198
+```
+
+### 1. Docker のインストール
+Docker 公式の apt リポジトリから `docker-ce` と `docker-compose-plugin` を入れ、`sudo usermod -aG docker ubuntu` のあと再ログインする。
+
+### 2. clone と本番用の設定
+```bash
+git clone https://github.com/kantacode/techmeets-blog.git
+cd techmeets-blog
+echo "APP_PORT=80" > .env            # Docker Compose 用（nginx を 80 番で公開）
+cp src/.env.example src/.env         # Laravel 用
+```
+
+EC2 上の `docker-compose.yml` だけ、次を本番向けに変える（DB は RDS を使うため。リポジトリの docker-compose.yml は開発用のまま）。
+- `db` と `phpmyadmin` のサービスを削除
+- `app` の `depends_on: - db` を削除
+- `volumes:` の `db-data:` を削除
+
+`src/.env` で変える項目：
+
+| 項目 | 値 |
+|---|---|
+| APP_ENV / APP_DEBUG | `production` / `false`（true のままだとエラーの中身が誰にでも見える） |
+| APP_URL | `http://16.179.249.198` |
+| DB_CONNECTION | `mysql`（行頭の `#` を外す） |
+| DB_HOST | RDS のエンドポイント |
+| DB_DATABASE / DB_USERNAME / DB_PASSWORD | `laravel` / `admin` / RDS のパスワード |
+| MYSQL_ATTR_SSL_CA | `/var/www/html/storage/certs/global-bundle.pem`（RDS と TLS で通信するための証明書） |
+| AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY | S3 用 IAM ユーザーのアクセスキー |
+| AWS_DEFAULT_REGION / AWS_BUCKET | `ap-southeast-2` / `techmeets-blog-images-1103` |
+
+RDS の証明書を置く：
+```bash
+mkdir -p src/storage/certs
+curl -o src/storage/certs/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+```
+
+### 3. 起動
+```bash
+docker compose up -d --build
+docker compose exec app composer install
+docker compose exec app chown -R www-data:www-data storage bootstrap/cache
+docker compose exec app chmod -R 775 storage bootstrap/cache
+docker run --rm -v "$(pwd)/src:/app" -w /app node:lts-slim sh -c "npm ci && npm run build"
+docker compose exec app php artisan key:generate --force
+docker compose exec app php artisan migrate --force
+```
+
+- `npm run build` を忘れると「Vite manifest not found」になる（`public/build/` は Git に含まれない）
+- EC2 のディスクは 8GB しかないので、Node は軽い `node:lts-slim` を使い、使い終わったイメージは `docker image prune -a` で消す
+- RDS 作成時に「最初のデータベース名」を空にしてしまったので、`CREATE DATABASE laravel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;` で作った
+
+### 使わない期間
+- EC2：「インスタンスを停止」（「終了」は削除なので押さない）。開始したら `docker compose up -d` でコンテナを起動し直す
+- RDS：「一時的に停止」。7日たつと自動で起動するので、また止める
+
+## 投稿に画像を付ける（Week 11：S3）
+
+- 投稿の作成・編集フォームで画像を選べる（任意。jpg/png/gif/webp など、5MB まで）
+- 画像は S3 の `images/` に保存し、DB（posts.image_path）には保存先のパスだけを入れる
+- 編集で画像を差し替えたら古い画像を、投稿を削除したら画像を S3 から消す（`PostService`）
+
+### バケットを公開しない理由
+バケットは「パブリックアクセスをブロック」のままにしています。画像を表示するときは、Laravel が画像ごとに **30分だけ有効な URL**（`Storage::disk('s3')->temporaryUrl()`）を発行します。バケットを公開すると、URL を知っている人なら誰でも、いつまでも画像を見られます。この方法なら、ブログのページから見たときだけ表示できます。
+
+### IAM ユーザーは最小権限
+Laravel 用の IAM ユーザー `techmeets-blog-s3` には、このバケットだけを操作できるポリシーを付けました（`AmazonS3FullAccess` は全部のバケットを操作できてしまうので使わない）。アクセスキーは EC2 の `src/.env` にだけ書き、GitHub には上げていません。
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow", "Action": ["s3:ListBucket"], "Resource": "arn:aws:s3:::techmeets-blog-images-1103" },
+    { "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"], "Resource": "arn:aws:s3:::techmeets-blog-images-1103/*" }
+  ]
+}
+```
+
+## テーブル定義（Week 11 で追加）
+
+### posts（追加した列）
+| カラム | 型 | 説明 |
+|---|---|---|
+| image_path | varchar(255)（空でもOK） | S3 に保存した画像のパス（例：images/xxxx.jpg） |

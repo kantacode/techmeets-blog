@@ -38,10 +38,11 @@ class PostController extends Controller
     // 保存：POST /posts
     public function store(PostRequest $request)
     {
-        $validated = $request->validated();
+        // 画像ファイルそのものは DB に入れないので、入力値からは外して別に渡す
+        $validated = $request->safe()->except('image');
         $validated['user_id'] = auth()->id(); // 投稿者はフォームではなく、ログイン中のユーザー
 
-        $post = $this->postService->createPost($validated);
+        $post = $this->postService->createPost($validated, $request->file('image'));
 
         return redirect()->route('posts.show', $post)->with('success', '投稿を作成しました');
     }
@@ -65,7 +66,11 @@ class PostController extends Controller
     {
         Gate::authorize('update', $post);
 
-        $post = $this->postService->updatePost($post, $request->validated());
+        $post = $this->postService->updatePost(
+            $post,
+            $request->safe()->except('image'),
+            $request->file('image')
+        );
 
         return redirect()->route('posts.show', $post)->with('success', '投稿を更新しました');
     }
