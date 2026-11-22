@@ -37,6 +37,12 @@
             <p style="color: green;">{{ session('success') }}</p>
         @endif
 
+        @if (! request()->routeIs('posts.show'))
+            @error('payment')
+                <p style="color: red;">{{ $message }}</p>
+            @enderror
+        @endif
+
         @yield('content')
     </main>
 

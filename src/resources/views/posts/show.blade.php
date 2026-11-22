@@ -17,6 +17,18 @@
 
     <div>{!! nl2br(e($post->content)) !!}</div>
 
+    {{-- 投げ銭（Stripe のテスト決済）：ログインした人だけ --}}
+    @auth
+        @error('payment')
+            <p style="color: red;">{{ $message }}</p>
+        @enderror
+
+        <form method="POST" action="{{ route('supports.create', $post) }}">
+            @csrf
+            <button type="submit">この記事の書き手を応援する（500円）</button>
+        </form>
+    @endauth
+
     {{-- 編集・削除ボタンは、投稿した本人にだけ表示する --}}
     @if (auth()->id() === $post->user_id)
         <p>

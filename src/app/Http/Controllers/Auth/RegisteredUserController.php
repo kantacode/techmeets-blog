@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\WelcomeMail;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,6 +46,14 @@ class RegisteredUserController extends Controller
         ]);
 
         event(new Registered($user));
+
+        // ウェルカムメールを送る（開発中は Mailpit に届く）
+        // メールの送信に失敗しても、会員登録そのものは成功させる
+        try {
+            Mail::to($user->email)->send(new WelcomeMail($user->name));
+        } catch (\Throwable $e) {
+            Log::error('WelcomeMail 送信失敗: ' . $e->getMessage());
+        }
 
         Auth::login($user);
 
