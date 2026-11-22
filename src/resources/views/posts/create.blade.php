@@ -13,7 +13,8 @@
         </ul>
     @endif
 
-    <form action="{{ route('posts.store') }}" method="POST">
+    {{-- ファイルを送るときは enctype="multipart/form-data" が必要 --}}
+    <form action="{{ route('posts.store') }}" method="POST" enctype="multipart/form-data">
         @csrf
 
         <p>
@@ -29,6 +30,11 @@
         <p>
             <label>内容</label><br>
             <textarea name="content" rows="8" cols="50">{{ old('content') }}</textarea>
+        </p>
+
+        <p>
+            <label>画像（任意・5MB まで）</label><br>
+            <input type="file" name="image" accept="image/*">
         </p>
 
         <button type="submit">投稿する</button>
