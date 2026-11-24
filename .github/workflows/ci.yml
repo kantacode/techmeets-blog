@@ -1,0 +1,35 @@
+name: CI
+
+# いつ動かすか：どのブランチに push しても動く ＋ main への PR でも動く
+on:
+  push:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest          # GitHub が用意してくれる Ubuntu のサーバーで動かす
+    defaults:
+      run:
+        working-directory: src      # Laravel は src/ の中にあるので、そこでコマンドを実行する
+
+    steps:
+      - name: チェックアウト（リポジトリのコードを取ってくる）
+        uses: actions/checkout@v4
+
+      - name: PHP 8.2 を用意する（開発用の Dockerfile と同じバージョン）
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, json, pdo, pdo_sqlite
+
+      - name: Composer でライブラリを入れる
+        run: composer install --prefer-dist --no-progress
+
+      - name: .env を作る
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: テストを実行する
+        run: php artisan test
