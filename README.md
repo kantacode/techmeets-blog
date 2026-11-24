@@ -378,3 +378,109 @@ Laravel 用の IAM ユーザー `techmeets-blog-s3` には、このバケット�
 | カラム | 型 | 説明 |
 |---|---|---|
 | image_path | varchar(255)（空でもOK） | S3 に保存した画像のパス（例：images/xxxx.jpg） |
+
+## 本番公開（Week 13：独自ドメイン + HTTPS）
+
+公開URL：https://okan-techblog.com
+
+### 構成
+```
+ブラウザ → Route 53（okan-techblog.com → 16.179.249.198）
+        → EC2 の Nginx（80/443、HTTPS の暗号化を解く）
+        → Docker の nginx コンテナ（127.0.0.1:8000）→ app コンテナ（Laravel）
+```
+
+- ドメインはお名前.com で取得し（Whois情報公開代行あり）、ネームサーバーを Route 53 のホストゾーンに向けた
+- Route 53 のレコード：`okan-techblog.com` → A → `16.179.249.198`（Elastic IP）、`www` → CNAME → `okan-techblog.com`
+- EC2 の Nginx を 80 番で使うため、Docker の nginx は `"127.0.0.1:${APP_PORT}:80"` にして、`.env`（Docker 用）を `APP_PORT=8000` にした。`127.0.0.1` を付けたので、8000 番には EC2 の外からつなげない
+- SSL 証明書は Let's Encrypt（`sudo certbot --nginx -d okan-techblog.com -d www.okan-techblog.com`）。90日ごとに certbot.timer が自動で更新する
+
+### Nginx の設定（EC2：/etc/nginx/sites-available/myapp.conf）
+HTTP → HTTPS と、www あり → www なし を、どちらも `https://okan-techblog.com` に 301 でリダイレクトしています。
+
+```nginx
+# HTTP（www あり・なし）→ https://okan-techblog.com へ
+server {
+    listen 80;
+    server_name okan-techblog.com www.okan-techblog.com;
+    return 301 https://okan-techblog.com$request_uri;
+}
+
+# https://www → https://okan-techblog.com へ
+server {
+    listen 443 ssl;
+    server_name www.okan-techblog.com;
+    ssl_certificate     /etc/letsencrypt/live/okan-techblog.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/okan-techblog.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    return 301 https://okan-techblog.com$request_uri;
+}
+
+# 本体：https://okan-techblog.com
+server {
+    listen 443 ssl;
+    server_name okan-techblog.com;
+    ssl_certificate     /etc/letsencrypt/live/okan-techblog.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/okan-techblog.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location / {
+        proxy_pass         http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Laravel に HTTPS を伝える設定
+- `src/bootstrap/app.php` に `$middleware->trustProxies(at: '*');` を追加。EC2 の Nginx が送る `X-Forwarded-Proto: https` を信じて、CSS/JS やフォームの URL を `https://` で作るようになる。これがないと `http://` で読み込もうとしてブラウザに止められ、画面が崩れる
+- `'*'`（すべて信頼）にしている理由：Docker の nginx は `127.0.0.1:8000` でしか待ち受けていないので、リクエストは必ず EC2 の Nginx を通るため
+- EC2 の `src/.env` を `APP_URL=https://okan-techblog.com` にして、`php artisan config:clear` した
+
+### コマンドでの動作確認（練習課題1）
+
+**`dig okan-techblog.com +short`**
+```
+16.179.249.198
+```
+ドメインの A レコードが EC2 の Elastic IP を返している。DNS の設定が世界に反映され、`okan-techblog.com` でこのサーバーにたどり着けるということ。
+
+**`curl -I https://okan-techblog.com`**
+```
+HTTP/1.1 200 OK
+Server: nginx/1.28.3 (Ubuntu)
+Content-Type: text/html; charset=utf-8
+X-Powered-By: PHP/8.2.35
+Cache-Control: no-cache, private
+Set-Cookie: XSRF-TOKEN=...; secure; samesite=lax
+Set-Cookie: laravel-session=...; secure; httponly; samesite=lax
+```
+- `HTTP/1.1 200 OK`：HTTPS でつながり、ページが正常に返ってきた（`1.1` は HTTP のバージョンで、暗号化とは関係ない）
+- `Server: nginx ... (Ubuntu)`：最初に応答したのは EC2 の Nginx
+- `X-Powered-By: PHP/8.2.35`：その奥で Laravel（PHP）が動いてページを作っている
+- `Set-Cookie: ... secure`：Cookie に `secure` が付き、HTTPS のときだけ送られる。`httponly` はセッション Cookie を JavaScript から読めなくする設定
+
+**`sudo certbot certificates`**
+```
+Certificate Name: okan-techblog.com
+  Domains: okan-techblog.com www.okan-techblog.com
+  Expiry Date: 2027-02-22 07:36:11+00:00 (VALID: 89 days)
+```
+証明書は `okan-techblog.com` と `www` の両方に有効で、期限は 2027-02-22（90日）。`sudo certbot renew --dry-run` が `all simulated renewals succeeded` になり、`certbot.timer` で期限前に自動更新される。
+
+### リダイレクトの確認
+| アクセス先 | 結果 |
+|---|---|
+| http://okan-techblog.com | 301 → https://okan-techblog.com/ |
+| http://www.okan-techblog.com | 301 → https://okan-techblog.com/ |
+| https://www.okan-techblog.com | 301 → https://okan-techblog.com/ |
+| https://okan-techblog.com | 200 OK |
+
+### つまずいたこと
+- Windows の PowerShell で `curl` は別のコマンド（Invoke-WebRequest）になるので、`curl.exe -I` で実行した
+- 家の IP アドレスが変わって SSH（22番）がタイムアウトした。セキュリティグループの SSH のソースを今の IP にして直した
