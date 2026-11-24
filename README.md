@@ -484,3 +484,32 @@ Certificate Name: okan-techblog.com
 ### つまずいたこと
 - Windows の PowerShell で `curl` は別のコマンド（Invoke-WebRequest）になるので、`curl.exe -I` で実行した
 - 家の IP アドレスが変わって SSH（22番）がタイムアウトした。セキュリティグループの SSH のソースを今の IP にして直した
+
+## テスト（Week 14）
+
+```bash
+# 全テスト（開発用の MySQL ではなく、メモリ上の SQLite で動くので、データは消えない）
+docker compose exec app php artisan test
+
+# カバレッジ付き（PCOV を docker/php/Dockerfile に追加済み。Dockerfile を変えたら docker compose build）
+docker compose exec app php artisan test --coverage
+```
+
+- 結果：146 件すべて成功、カバレッジ 84.3%
+- `phpunit.xml` の `DB_CONNECTION` と `DB_DATABASE` に `force="true"` を付け、テストでは必ずインメモリ DB を使うようにした
+- カバレッジの対象から `app/Console` を外した
+
+| ファイル | 種類 | 内容 |
+|---|---|---|
+| tests/Unit/PriceCalculatorTest.php | Unit | 税込計算・割引の正常系と異常系 |
+| tests/Unit/PriceCalculatorBoundaryTest.php | Unit | 割引率の境界値（-1 / 0 / 100 / 101） |
+| tests/Unit/PostServiceTest.php | Unit（DB あり） | PostService の作成・更新・削除、S3 の画像の保存と削除（`Storage::fake`）、失敗時のロールバック |
+| tests/Feature/AuthFlowTest.php | Feature | 会員登録（ウェルカムメール、パスワード7文字 NG / 8文字 OK）、ログイン・ログアウト |
+| tests/Feature/PostCrudTest.php | Feature | 投稿の CRUD、バリデーション（タイトル200 / 201文字など）、他人の投稿は 403 |
+| tests/Feature/PostLikeTest.php | Feature | いいね（TDD で追加） |
+| tests/Feature/TaskTest.php ほか | Feature | タスク・商品・コメント・イベント予約 |
+
+### TDD で追加した機能：いいね
+- **Red**：先に `PostLikeTest`（いいね・取り消し・未ログインは不可・詳細画面に数を表示）を書き、7件中6件が失敗することを確認した
+- **Green**：`likes` テーブル（user_id と post_id の組み合わせは1回だけ）、`Post::likedUsers()` / `isLikedBy()`、`POST /posts/{post}/like`、詳細画面の表示を最小限で実装して全件成功
+- **Refactor**：コントローラーの if 文を `Post::toggleLikeBy()`（`toggle()`）にまとめ、詳細画面の件数は `loadCount('likedUsers')` で取るようにした。テストは成功のまま

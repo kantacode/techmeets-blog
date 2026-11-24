@@ -17,6 +17,15 @@
 
     <div>{!! nl2br(e($post->content)) !!}</div>
 
+    {{-- いいね（Week 14）：数は誰でも見られる。押せるのはログインした人だけ --}}
+    <p>いいね {{ $post->liked_users_count }}</p>
+    @auth
+        <form method="POST" action="{{ route('posts.like', $post) }}">
+            @csrf
+            <button type="submit">{{ $post->isLikedBy(auth()->user()) ? 'いいねを取り消す' : 'いいね' }}</button>
+        </form>
+    @endauth
+
     {{-- 投げ銭（Stripe のテスト決済）：ログインした人だけ --}}
     @auth
         @error('payment')

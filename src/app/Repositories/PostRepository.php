@@ -21,10 +21,12 @@ class PostRepository
         return Post::with('user')->findOrFail($id);
     }
 
-    // 詳細用：投稿者と、コメント（＋書いた人）を古い順で一緒に取得
+    // 詳細用：投稿者と、コメント（＋書いた人）を古い順で一緒に取得し、いいねの数（liked_users_count）も数える
     public function loadForShow(Post $post): Post
     {
-        return $post->load(['user', 'comments' => fn ($query) => $query->with('user')->oldest()]);
+        return $post
+            ->load(['user', 'comments' => fn ($query) => $query->with('user')->oldest()])
+            ->loadCount('likedUsers');
     }
 
     public function create(array $data): Post
