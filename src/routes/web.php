@@ -7,6 +7,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\SupportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -35,6 +36,10 @@ Route::middleware('auth')->group(function () {
     // コメントの書き込み・削除もログインした人だけ
     Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->name('comments.store');
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
+
+    // 投げ銭（Stripe Checkout）
+    Route::post('/posts/{post}/support', [SupportController::class, 'create'])->name('supports.create');
+    Route::get('/supports/success', [SupportController::class, 'success'])->name('supports.success');
 });
 
 // 投稿の一覧・詳細は誰でも見られる

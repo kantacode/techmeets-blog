@@ -54,6 +54,15 @@ services:
     networks:
       - app-network
 
+  # Mailpit（開発用のメール受信ツール）
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"   # 受け取ったメールを確認する画面
+    networks:
+      - app-network
+    # メールを受け取るポート（1025番）は app コンテナから使うだけなので ports に書かない
+
 volumes:
   db-data:
   vendor-data:
