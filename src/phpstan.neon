@@ -1,0 +1,18 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/nesbot/carbon/extension.neon
+
+parameters:
+    level: 5          # 0〜10。数字が大きいほど厳しい。教材どおり 5 にする
+    paths:            # チェックする場所
+        - app
+        - routes
+    excludePaths:     # チェックしない場所
+        - storage
+        - vendor
+    ignoreErrors:     # わざと無視するエラー（理由も書いておく）
+        # Breeze が最初から入れたメール認証のコード。User に MustVerifyEmail を付けていない
+        # （メール認証の機能は使っていない）ので、型が合わないと言われる
+        -
+            message: '#Illuminate\\Auth\\Events\\Verified constructor expects Illuminate\\Contracts\\Auth\\MustVerifyEmail#'
+            path: app/Http/Controllers/Auth/VerifyEmailController.php

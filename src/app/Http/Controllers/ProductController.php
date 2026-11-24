@@ -18,7 +18,8 @@ class ProductController extends Controller
     public function __construct(
         private ProductService $productService,
         private ProductRepository $productRepository
-    ) {}
+    ) {
+    }
 
     // 一覧：GET /products
     public function index()

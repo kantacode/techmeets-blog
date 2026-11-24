@@ -7,12 +7,12 @@ use App\Repositories\ProductRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-
 class ProductService
 {
     public function __construct(
         private ProductRepository $productRepository
-    ) {}
+    ) {
+    }
 
     public function createProduct(array $data): Product
     {

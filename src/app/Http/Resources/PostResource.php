@@ -8,6 +8,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /**
  * 投稿をフロントに返すときの JSON の形を決める
  * モデルをそのまま返すと不要なカラムが漏れるので、返す項目をここで明示する
+ *
+ * @mixin \App\Models\Post
  */
 class PostResource extends JsonResource
 {

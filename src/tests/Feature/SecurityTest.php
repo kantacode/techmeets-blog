@@ -57,7 +57,7 @@ class SecurityTest extends TestCase
     {
         // Laravel はテスト実行中だけ CSRF チェックを自動で外すので、
         // 「テスト中ではない」ことにした CSRF チェックに差し替えて、本番と同じ状態で試す
-        $this->app->instance(ValidateCsrfToken::class, new class($this->app, $this->app['encrypter']) extends ValidateCsrfToken {
+        $this->app->instance(ValidateCsrfToken::class, new class ($this->app, $this->app['encrypter']) extends ValidateCsrfToken {
             protected function runningUnitTests()
             {
                 return false;

@@ -16,7 +16,8 @@ class TaskController extends Controller
     public function __construct(
         private TaskService $taskService,
         private TaskRepository $taskRepository
-    ) {}
+    ) {
+    }
 
     // 一覧（自分のタスクだけ）：GET /tasks
     public function index()

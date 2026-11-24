@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 class Post extends Model
@@ -30,19 +33,20 @@ class Post extends Model
     }
 
     // 投稿(多) → ユーザー(1)：$post->user->name で投稿者名が取れる
-    public function user()
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
     // 投稿(1) → コメント(多)：$post->comments でコメント一覧が取れる
-    public function comments()
+    public function comments(): HasMany          // 投稿(1) → コメント(多)
     {
         return $this->hasMany(Comment::class);
     }
 
     // 投稿(多) ⇔ ユーザー(多)：いいねした人の一覧（中間テーブル likes）
-    public function likedUsers()
+    public function likedUsers(): BelongsToMany  // 投稿(多) ⇔ ユーザー(多)
     {
         return $this->belongsToMany(User::class, 'likes')->withTimestamps();
     }

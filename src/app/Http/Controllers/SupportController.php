@@ -36,7 +36,8 @@ class SupportController extends Controller
                 ]],
                 'mode'        => 'payment',
                 // 決済後に「どの記事を・誰が応援したか」が分かるように Stripe に預けておく
-                'metadata'    => ['post_id' => $post->id, 'user_id' => auth()->id()],
+                // Stripe の metadata は文字列で保存されるので、最初から文字列にして渡す
+                'metadata'    => ['post_id' => (string) $post->id, 'user_id' => (string) auth()->id()],
                 'success_url' => route('supports.success') . '?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url'  => route('posts.show', $post),
             ]);
@@ -74,8 +75,12 @@ class SupportController extends Controller
             return redirect()->route('posts.index')->withErrors(['payment' => '決済の確認に失敗しました']);
         }
 
+        // metadata は中身が決まっていない入れ物なので、配列のように ['キー'] で取り出す
+        $userId = (int) $session->metadata['user_id'];
+        $postId = (int) $session->metadata['post_id'];
+
         // 決済が終わっていない、または別の人の決済なら保存しない
-        if ($session->payment_status !== 'paid' || (int) $session->metadata->user_id !== auth()->id()) {
+        if ($session->payment_status !== 'paid' || $userId !== auth()->id()) {
             return redirect()->route('posts.index')->withErrors(['payment' => '決済が完了していません']);
         }
 
@@ -83,8 +88,8 @@ class SupportController extends Controller
         $support = Support::firstOrCreate(
             ['stripe_session_id' => $session->id],
             [
-                'user_id' => $session->metadata->user_id,
-                'post_id' => $session->metadata->post_id,
+                'user_id' => $userId,
+                'post_id' => $postId,
                 'amount'  => $session->amount_total,  // 円の場合は、この値がそのまま金額（円）
             ]
         );

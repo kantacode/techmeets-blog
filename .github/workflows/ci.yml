@@ -7,6 +7,30 @@ on:
     branches: [ main ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: PHP 8.2 を用意する
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Composer でライブラリを入れる
+        run: composer install --prefer-dist --no-progress
+
+      - name: PHP CS Fixer（書き方がルールどおりか）
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
+      - name: PHPStan（バグになりそうな箇所がないか）
+        run: vendor/bin/phpstan analyse --memory-limit=1G
+
   test:
     runs-on: ubuntu-latest          # GitHub が用意してくれる Ubuntu のサーバーで動かす
     defaults:
