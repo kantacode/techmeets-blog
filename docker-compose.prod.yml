@@ -1,0 +1,22 @@
+# 本番（EC2）用の構成
+# - DB は RDS を使うので、db・phpmyadmin・mailpit は置かない
+# - 80/443 は EC2 の Nginx（Week 13）が受けて、ここの 8000 番に転送する
+services:
+  nginx:
+    image: nginx:latest
+    restart: always                 # EC2 を再起動したときも、自動で起動する
+    ports:
+      - "127.0.0.1:8000:80"         # EC2 の中からしか接続できない（外からは EC2 の Nginx 経由だけ）
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    restart: always
+    volumes:
+      - ./src:/var/www/html         # RDS の接続先などは、EC2 の src/.env に書いてある（Week 11）

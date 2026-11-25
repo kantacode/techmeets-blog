@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Task extends Model
 {
@@ -14,14 +15,14 @@ class Task extends Model
         'is_done',
     ];
 
-    
+
     protected $casts = [
-        'due_date' => 'date',     
-        'is_done'  => 'boolean',  
+        'due_date' => 'date',
+        'is_done'  => 'boolean',
     ];
 
-    
-    public function user()
+
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }

@@ -18,7 +18,8 @@ class PostService
     // コンストラクタインジェクション：PostRepository は Laravel が自動で用意してくれる
     public function __construct(
         private PostRepository $postRepository
-    ) {}
+    ) {
+    }
 
     public function createPost(array $data, ?UploadedFile $image = null): Post
     {

@@ -30,6 +30,8 @@ class StripeWebhookController extends Controller
 
         // イベントの種類に応じて処理を分岐
         if ($event->type === 'payment_intent.succeeded') {
+            // このイベントのとき、object の中身は PaymentIntent（決済の情報）
+            /** @var \Stripe\PaymentIntent $paymentIntent */
             $paymentIntent = $event->data->object;
             Log::info('決済完了: ' . $paymentIntent->id . '（' . $paymentIntent->amount . ' ' . $paymentIntent->currency . '）');
         }

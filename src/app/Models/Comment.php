@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Comment extends Model
 {
@@ -13,13 +14,13 @@ class Comment extends Model
     ];
 
     // コメント(多) → 投稿(1)
-    public function post()
+    public function post(): BelongsTo
     {
         return $this->belongsTo(Post::class);
     }
 
     // コメント(多) → ユーザー(1)：$comment->user->name で書いた人の名前が取れる
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
