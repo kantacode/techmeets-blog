@@ -46,6 +46,7 @@ jobs:
         with:
           php-version: '8.2'
           extensions: mbstring, xml, ctype, json, pdo, pdo_sqlite
+          coverage: pcov
 
       - name: Composer でライブラリを入れる
         run: composer install --prefer-dist --no-progress
@@ -55,5 +56,13 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
-      - name: テストを実行する
-        run: php artisan test
+      - name: テストを実行する（カバレッジ付き。70% 未満なら失敗にする）
+        run: php artisan test --coverage --min=70 | tee coverage.txt
+
+      - name: カバレッジを Actions の画面に表示する
+        if: always()
+        run: |
+          echo '## テストとカバレッジの結果' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat coverage.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
