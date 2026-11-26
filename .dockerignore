@@ -1,0 +1,49 @@
+# イメージに入れないもの（Docker に送るファイルを減らし、秘密の情報が入らないようにする）
+
+# Git 関連
+.git
+.gitignore
+.github
+
+# フロントエンド（Week 10）はイメージに含めない
+my-frontend
+
+# 依存関係（イメージの中で入れ直すので、手元の物は送らない。**/ は下の階層にも効く）
+**/node_modules
+**/vendor
+
+# 環境設定（APP_KEY や DB のパスワードが入っているので、絶対にイメージに入れない）
+**/.env
+**/.env.*
+
+# テスト・開発ツール
+src/tests
+src/phpunit.xml
+src/phpstan.neon
+src/.php-cs-fixer.php
+src/.php-cs-fixer.cache
+src/.phpunit.cache
+src/coverage
+
+# 実行中に作られるファイル（ログ・キャッシュ・RDS の証明書など）
+src/storage/logs/*
+src/storage/framework/cache/*
+src/storage/framework/sessions/*
+src/storage/framework/views/*
+src/storage/certs
+src/bootstrap/cache/*.php
+
+# ビルド成果物（イメージの中でビルドし直す）
+src/public/hot
+src/public/build
+src/public/storage
+
+# IDE
+.vscode
+.idea
+
+# その他
+README.md
+docs
+week14-pr-body.md
+docker-compose*.yml

@@ -1,22 +1,40 @@
-# 本番（EC2）用の構成
+# 本番（EC2）用の構成（Week 16：Docker Hub のイメージを使う）
+# - ソースコードはイメージの中に入っているので、./src はつながない
 # - DB は RDS を使うので、db・phpmyadmin・mailpit は置かない
 # - 80/443 は EC2 の Nginx（Week 13）が受けて、ここの 8000 番に転送する
+# - IMAGE_TAG を付けると、そのバージョンに切り替えられる（ロールバック用）
+#     例：IMAGE_TAG=abc1234 docker compose -f docker-compose.prod.yml up -d
+
+# ログ：Docker の json-file に集める。1ファイル10MB・3ファイルまでで、古い物から自動で消える
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
-  nginx:
-    image: nginx:latest
-    restart: always                 # EC2 を再起動したときも、自動で起動する
-    ports:
-      - "127.0.0.1:8000:80"         # EC2 の中からしか接続できない（外からは EC2 の Nginx 経由だけ）
+  app:
+    image: kanta1120603/techmeets-app:${IMAGE_TAG:-latest}
+    restart: always
+    env_file:
+      - .env.production          # APP_KEY や RDS の接続先など（EC2 にだけ置く。Git には入れない）
     volumes:
-      - ./src:/var/www/html
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - storage:/var/www/html/storage                                   # 実行中に書き込むファイル（セッションなど）を残す
+      - ./certs/global-bundle.pem:/var/www/certs/global-bundle.pem:ro   # RDS に暗号化してつなぐための証明書（読み取りだけ）
+    logging: *default-logging
+    # ヘルスチェックは Dockerfile の HEALTHCHECK（/ping → pong）を使う
+
+  nginx:
+    image: kanta1120603/techmeets-web:${IMAGE_TAG:-latest}
+    restart: always
+    ports:
+      - "127.0.0.1:8000:80"      # EC2 の中からしか接続できない（外からは EC2 の Nginx 経由だけ）
+    volumes:
+      - ./docker/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - storage:/var/www/html/storage:ro
     depends_on:
       - app
+    logging: *default-logging
 
-  app:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-    restart: always
-    volumes:
-      - ./src:/var/www/html         # RDS の接続先などは、EC2 の src/.env に書いてある（Week 11）
+volumes:
+  storage:
