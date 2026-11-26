@@ -3,7 +3,7 @@
 @section('title', '投稿一覧')
 
 @section('content')
-    <h1>投稿一覧</h1>
+    <h1>投稿一覧（v2）</h1>
 
     @forelse ($posts as $post)
         <article>
