@@ -1,1 +1,5 @@
 .env
+
+# 本番（EC2）にだけ置くもの。APP_KEY や DB のパスワード、RDS の証明書なので Git に入れない
+.env.production
+/certs/
