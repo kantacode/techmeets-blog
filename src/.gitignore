@@ -23,3 +23,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /.php-cs-fixer.cache
+# RDS に暗号化してつなぐための証明書（EC2 にだけ置く。Week 16 からは リポジトリ直下の certs/ を使う）
+/storage/certs/
+# Debugbar（開発のときだけ使う）が保存する記録
+/storage/debugbar/

@@ -8,6 +8,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * 投稿の「業務の手順」を担当する（料理長）
@@ -74,10 +75,46 @@ class PostService
         }
     }
 
-    // S3 の images/ フォルダに保存し、保存先のパス（例：images/xxxx.jpg）を返す
+    // S3 の images/ フォルダに保存し、保存先のパス（例：images/xxxx.webp）を返す
+    // JPEG・PNG は WebP（品質80）に変換してから保存する。同じ見た目でファイルが小さくなり、表示が速くなる（Week 17）
     private function storeImage(UploadedFile $image): string
     {
-        return Storage::disk('s3')->put('images', $image);
+        $webp = $this->convertToWebp($image);
+
+        // GIF のアニメーションなど、変換できない画像は元のまま保存する
+        if ($webp === null) {
+            return Storage::disk('s3')->put('images', $image);
+        }
+
+        $path = 'images/' . Str::uuid() . '.webp';
+        Storage::disk('s3')->put($path, $webp, ['ContentType' => 'image/webp']);
+
+        return $path;
+    }
+
+    // GD で画像を読み込み、WebP のデータ（文字列）にして返す。変換できなければ null
+    private function convertToWebp(UploadedFile $image): ?string
+    {
+        // アニメーション GIF は、WebP にすると1枚目しか残らないので変換しない
+        if ($image->getMimeType() === 'image/gif') {
+            return null;
+        }
+
+        $source = @imagecreatefromstring((string) file_get_contents($image->getRealPath()));
+        if ($source === false) {
+            return null;
+        }
+
+        imagepalettetotruecolor($source);   // 256色の PNG も WebP にできるようにする
+        imagealphablending($source, true);
+        imagesavealpha($source, true);      // PNG の透明な部分を残す
+
+        ob_start();
+        imagewebp($source, null, 80);
+        $webp = (string) ob_get_clean();
+        imagedestroy($source);
+
+        return $webp !== '' ? $webp : null;
     }
 
     private function deleteImage(string $path): void

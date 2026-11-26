@@ -10,6 +10,7 @@
             <h2><a href="{{ route('posts.show', $post) }}">{{ $post->title }}</a></h2>
             <p>カテゴリー：{{ $post->category }} ／ 投稿者：{{ $post->user->name }}</p>
             <p>{{ Str::limit($post->content, 100) }}</p>
+            <p>コメント {{ $post->comments_count }}件 ／ いいね {{ $post->liked_users_count }}</p>
             <small>{{ $post->created_at->format('Y年m月d日') }}</small>
         </article>
         <hr>

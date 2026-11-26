@@ -74,6 +74,48 @@ class PostServiceTest extends TestCase
         Storage::disk('s3')->assertExists($post->image_path);
     }
 
+    // ---------- WebP への変換（Week 17） ----------
+
+    // WebP のファイルは、先頭が "RIFF"、9バイト目から "WEBP" になっている
+    private function assertIsWebp(string $path): void
+    {
+        $this->assertStringEndsWith('.webp', $path);
+        $bytes = Storage::disk('s3')->get($path);
+        $this->assertSame('RIFF', substr($bytes, 0, 4));
+        $this->assertSame('WEBP', substr($bytes, 8, 4));
+    }
+
+    public function test_jpeg_is_converted_to_webp(): void
+    {
+        $post = $this->service->createPost($this->validData(), UploadedFile::fake()->image('photo.jpg', 800, 600));
+
+        $this->assertIsWebp($post->image_path);
+    }
+
+    public function test_png_is_converted_to_webp(): void
+    {
+        $post = $this->service->createPost($this->validData(), UploadedFile::fake()->image('icon.png', 200, 200));
+
+        $this->assertIsWebp($post->image_path);
+    }
+
+    // GIF はアニメーションが消えてしまうので、変換せずに元のまま保存する
+    public function test_gif_is_stored_as_is(): void
+    {
+        $post = $this->service->createPost($this->validData(), UploadedFile::fake()->image('anime.gif', 100, 100));
+
+        $this->assertStringEndsWith('.gif', $post->image_path);
+    }
+
+    // 画像として読めないファイルも、エラーにせず元のまま保存する（入力チェックは PostRequest の役目）
+    public function test_unreadable_image_is_stored_as_is(): void
+    {
+        $post = $this->service->createPost($this->validData(), UploadedFile::fake()->create('broken.jpg', 10, 'image/jpeg'));
+
+        $this->assertStringEndsNotWith('.webp', $post->image_path);
+        Storage::disk('s3')->assertExists($post->image_path);
+    }
+
     public function test_update_post_changes_title(): void
     {
         $post = Post::factory()->for($this->user)->create(['title' => '古いタイトル']);

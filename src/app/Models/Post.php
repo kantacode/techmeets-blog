@@ -7,11 +7,29 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Post extends Model
 {
     use HasFactory; // テストで Post::factory() を使えるようにする（Week 14）
+
+    // 投稿一覧のキャッシュの「版」を入れておくキー（Week 17。PostRepository::getPublished を参照）
+    public const LIST_CACHE_VERSION_KEY = 'posts.list.version';
+
+    // 投稿が作られた・変わった・消えたら、一覧のキャッシュを捨てる
+    protected static function booted(): void
+    {
+        static::saved(fn () => self::flushListCache());
+        static::deleted(fn () => self::flushListCache());
+    }
+
+    // 版を新しくする。キャッシュのキーが変わるので、次に一覧を開いたときは DB から取り直す
+    public static function flushListCache(): void
+    {
+        Cache::forever(self::LIST_CACHE_VERSION_KEY, (string) Str::uuid());
+    }
 
     protected $fillable = [
         'title',
@@ -22,11 +40,17 @@ class Post extends Model
     ];
 
     // 画像の URL：$post->image_url で取れる（画像がなければ null）
-    // バケットは非公開のままにして、30分だけ有効な URL（署名付き URL）を毎回発行する
+    // - AWS_URL（CloudFront のドメイン）があれば、CloudFront 経由の URL を返す（Week 17）
+    //   バケットは非公開のまま。CloudFront だけが OAC で S3 を読める
+    // - なければ、30分だけ有効な S3 の URL（署名付き URL）を発行する（Week 11 のやり方）
     public function getImageUrlAttribute(): ?string
     {
         if (! $this->image_path) {
             return null;
+        }
+
+        if (config('filesystems.disks.s3.url')) {
+            return Storage::disk('s3')->url($this->image_path);
         }
 
         return Storage::disk('s3')->temporaryUrl($this->image_path, now()->addMinutes(30));
@@ -61,5 +85,8 @@ class Post extends Model
     public function toggleLikeBy(User $user): void
     {
         $this->likedUsers()->toggle($user->id);
+
+        // 一覧に出している「いいね数」が変わるので、一覧のキャッシュを捨てる
+        self::flushListCache();
     }
 }
