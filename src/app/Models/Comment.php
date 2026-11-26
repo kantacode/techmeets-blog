@@ -13,6 +13,13 @@ class Comment extends Model
         'body',
     ];
 
+    // コメントが増えた・消えたら、投稿一覧の「コメント数」が変わるので、一覧のキャッシュを捨てる（Week 17）
+    protected static function booted(): void
+    {
+        static::saved(fn () => Post::flushListCache());
+        static::deleted(fn () => Post::flushListCache());
+    }
+
     // コメント(多) → 投稿(1)
     public function post(): BelongsTo
     {

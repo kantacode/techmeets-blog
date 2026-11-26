@@ -41,7 +41,13 @@ RUN apk upgrade --no-cache
 # 必要な拡張だけ入れる（RDS につなぐ pdo_mysql と、PHP を速くする opcache）
 # fcgi はヘルスチェックで php-fpm に問い合わせるためのコマンド
 RUN apk add --no-cache fcgi \
-    && docker-php-ext-install pdo_mysql opcache \
+    # GD（画像処理）：アップロード画像を WebP に変換するため（Week 17）
+    # 実行に使うライブラリ（libpng など）は残し、作るときだけ使う -dev は最後に消す
+    && apk add --no-cache libpng libjpeg-turbo libwebp \
+    && apk add --no-cache --virtual .gd-build-deps libpng-dev libjpeg-turbo-dev libwebp-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-webp \
+    && docker-php-ext-install pdo_mysql opcache gd \
+    && apk del .gd-build-deps \
     # php-fpm の ping 機能を有効にする（/ping に問い合わせると pong が返る）
     && echo "ping.path = /ping" >> /usr/local/etc/php-fpm.d/zz-docker.conf \
     # 本番用の php.ini を使い、アップロードの上限は開発と同じ 10MB にする
